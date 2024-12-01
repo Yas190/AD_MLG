@@ -1,0 +1,40 @@
+/* Estilos gerais do sumário (TOC) para garantir legibilidade nos temas claro e escuro */
+
+/* Modo claro */
+body.light-mode #toc {
+    background-color: #f1f1f1 !important; /* Fundo cinza claro para melhor contraste */
+    color: #000000 !important; /* Texto escuro */
+    border: 1px solid #dddddd !important;
+    border-radius: 5px !important;
+    padding: 10px !important;
+}
+
+body.light-mode #toc a {
+    color: #0056b3 !important; /* Azul mais escuro */
+    background-color: #ffffff !important; /* Fundo branco para contraste máximo */
+    text-decoration: none !important;
+    font-weight: bold !important;
+}
+
+/* Modo escuro */
+body.dark-mode #toc {
+    background-color: #333333 !important; /* Fundo escuro com contraste sutil */
+    color: #ffffff !important; /* Texto claro */
+    border: 1px solid #666666 !important;
+    border-radius: 5px !important;
+    padding: 10px !important;
+}
+
+body.dark-mode #toc a {
+    color: #ffffff !important; /* Branco para máximo contraste no modo escuro */
+    background-color: #555555 !important; /* Fundo mais escuro para garantir que o link se destaque */
+    text-decoration: none !important;
+    font-weight: bold !important;
+}
+
+/* Garantir que os links do TOC tenham destaque ao passar o mouse */
+#toc a:hover {
+    text-decoration: underline !important;
+    color: #ff6347 !important; /* Cor de destaque ao passar o mouse */
+    background-color: #444444 !important; /* Fundo mais escuro ao passar o mouse */
+}

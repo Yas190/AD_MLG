@@ -1,0 +1,590 @@
+---
+title: "Modelagem de Dados Publicitários: Uma Abordagem com Modelos Lineares Generalizados de Família Binomial"
+author: "Jonatan Araujo, Yasmin Pires"
+date: "`r format(Sys.Date(), '%d de %B de %Y')`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: journal
+    highlight: tango
+    code_folding: hide
+    includes:
+      after_body: toggle-theme.html
+    css: "toc-styles.css"
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+# Configuração do relatório
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+# Carregar pacotes necessários
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(hnp)
+library(modEvA)
+library(broom)
+library(reshape2)
+library(ggiraph)
+library(plotly)
+library(knitr)
+
+```
+
+## Introdução
+
+Este relatório tem como objetivo analisar dados publicitários e ajustar
+um modelo de regressão. Os dados utilizados neste relatório estão
+disponíveis publicamente no Kaggle e podem ser acessados através do
+link: [Advertisement Click on Ad
+Dataset](https://www.kaggle.com/datasets/gabrielsantello/advertisement-click-on-ad).
+Na seção inicial, será feita uma análise descritiva dos dados para
+compreender sua estrutura e características gerais.
+
+## Carregamento e Pré-processamento dos Dados
+
+Nesta etapa, os dados são carregados, e são realizadas as primeiras
+transformações e inspeções para entender sua estrutura e preparar o
+conjunto de dados para análises mais detalhadas.
+
+```{r load-data}
+# Carregar os dados
+df <- read_csv("advertising.csv")
+df <- as_tibble(df)
+str(df)
+df2 <- df[-246, ]
+# Exibir as primeiras linhas do dataframe
+#head(df)
+df2 <- as_tibble(df2)
+#str(df2)
+```
+
+```{r transform-date, include=FALSE}
+#summary(df)
+
+# Converter a coluna Timestamp para o formato de data
+df$Timestamp <- as.POSIXct(df$Timestamp, format = "%Y-%m-%d %H:%M:%S")
+```
+
+### Explicação dos Dados
+
+-   **Carregamento dos Dados**: Os dados são carregados a partir de um
+    arquivo CSV, e uma prévia do dataframe é exibida para garantir que
+    as variáveis foram corretamente importadas.
+-   **Estrutura e Resumo**: A estrutura dos dados é explorada para
+    verificar os tipos de variáveis (numéricas, categóricas, etc.), e
+    estatísticas descritivas são geradas para cada coluna.
+-   **Conversão de Datas**: A coluna `Timestamp`, representando o
+    momento de registro, é convertida para o formato de data e hora,
+    facilitando análises temporais caso necessário.
+
+Com essa base, seguimos para as análises descritivas gráficas que
+complementam esta investigação inicial.
+
+## Análise Descritiva Gráfica
+
+Nesta seção, analisaremos graficamente as principais características das
+variáveis do conjunto de dados.
+
+### Distribuição Percentual das Idades Mais Comuns
+
+O gráfico acima mostra as idades mais frequentes no conjunto de dados,
+representando os 10 principais grupos em termos percentuais. Isso ajuda
+a identificar o perfil etário predominante dos usuários analisados.
+
+```{r age-percentage}
+# Percentual das idades mais comuns
+df_percentual_age <- df %>%
+  count(Age) %>%
+  mutate(percent = n / sum(n) * 100) %>%
+  arrange(desc(percent)) %>%
+  head(10)
+
+# Gráfico de barras das idades mais comuns
+ggplot(df_percentual_age, aes(x = reorder(Age, -percent), y = percent)) +
+  geom_bar(stat = "identity", fill = "steelblue", color = "black") +
+  geom_text(aes(label = sprintf("%.2f%%", percent)), vjust = -0.5, size = 3.5) +
+  labs(x = "Idade", y = "Percentual", title = "Distribuição Percentual das Idades Mais Comuns") +
+  theme_minimal(base_size = 14)
+```
+
+O gráfico destaca que a faixa etária de 31 anos é a mais prevalente,
+representando 6% dos dados. Em seguida, idades como 36, 28 e 29 anos
+aparecem com percentuais próximos de 5%. Esses resultados sugerem que o
+público analisado é majoritariamente adulto jovem, com idades
+concentradas entre 26 e 36 anos
+
+### Histograma das Idades
+
+Este histograma apresenta a distribuição geral das idades no conjunto de
+dados, oferecendo uma visão clara da dispersão e concentração dos
+valores.
+
+```{r age-histogram}
+# Histograma das idades
+ggplot(df, aes(x = Age)) +
+  geom_histogram(bins = 30, fill = "dodgerblue", color = "black") +
+  labs(x = "Idade", y = "Frequência", title = "Histograma das Idades") +
+  theme_minimal(base_size = 14)
+```
+
+O histograma evidencia que a distribuição das idades é levemente
+assimétrica à direita, com maior frequência em torno de 30 anos. Isso
+corrobora com o gráfico anterior, indicando que a maioria dos usuários
+está na faixa de 20 a 40 anos, com uma menor presença de indivíduos
+acima dos 50 anos.
+
+### Distribuição Percentual por Gênero
+
+Este gráfico apresenta a proporção de gêneros no conjunto de dados,
+identificando a representação masculina e feminina entre os usuários
+analisados.
+
+```{r gender-percentage}
+# Percentual de gênero (Male)
+df_percentual_male <- df %>%
+  count(Male) %>%
+  mutate(percent = n / sum(n) * 100)
+
+# Gráfico de barras do percentual de gênero
+ggplot(df_percentual_male, aes(x = factor(Male, labels = c("Feminino", "Masculino")), y = percent)) +
+  geom_bar(stat = "identity", fill = c("pink", "lightblue"), color = "black") +
+  geom_text(aes(label = sprintf("%.2f%%", percent)), vjust = -0.5, size = 3.5) +
+  labs(x = "Gênero", y = "Percentual", title = "Distribuição Percentual por Gênero") +
+  theme_minimal(base_size = 14)
+```
+
+Este gráfico revela uma ligeira predominância de usuárias femininas
+(51.9%) em relação aos usuários masculinos (48.1%). Embora a diferença
+seja pequena, ela pode ser relevante dependendo do objetivo da campanha
+publicitária, indicando uma necessidade de segmentação ou personalização
+de conteúdos.
+
+### Distribuição Percentual de Cliques
+
+O gráfico exibe a proporção de usuários que clicaram e não clicaram no
+anúncio. Isso fornece insights sobre o comportamento geral dos usuários
+em relação às campanhas publicitárias.
+
+```{r click-percentage}
+# Percentual de cliques no anúncio
+df_percentual_click <- df %>%
+  count(`Clicked on Ad`) %>%
+  mutate(percent = n / sum(n) * 100)
+
+# Gráfico de barras dos cliques
+ggplot(df_percentual_click, aes(x = factor(`Clicked on Ad`, labels = c("Não clicou", "Clicou")), y = percent)) +
+  geom_bar(stat = "identity", fill = c("tomato", "forestgreen"), color = "black") +
+  geom_text(aes(label = sprintf("%.2f%%", percent)), vjust = -0.5, size = 3.5) +
+  labs(x = "Clique no Anúncio", y = "Percentual", title = "Distribuição Percentual de Cliques") +
+  theme_minimal(base_size = 14)
+```
+
+O gráfico de barras indica que a divisão entre usuários que clicaram e
+não clicaram no anúncio está exatamente balanceada, com 50% em cada
+grupo. Este equilíbrio pode facilitar as análises subsequentes, evitando
+vieses devido à desproporção entre as categorias.
+
+### Boxplots para Variáveis Numéricas
+
+#### Tempo Diário no Site vs. Clique no Anúncio
+
+Este boxplot compara o tempo diário gasto no site pelos usuários que
+clicaram e não clicaram no anúncio, indicando possíveis diferenças no
+engajamento.
+
+```{r time-vs-click}
+# Boxplot: Tempo diário no site vs. clique no anúncio
+ggplot(df, aes(x = factor(`Clicked on Ad`, labels = c("Não clicou", "Clicou")), y = `Daily Time Spent on Site`)) +
+  geom_boxplot(fill = "lightblue", color = "black") +
+  labs(x = "Clique no Anúncio", y = "Tempo Diário no Site", title = "Boxplot: Tempo Diário no Site por Clique") +
+  theme_minimal(base_size = 14)
+```
+
+Este boxplot mostra que usuários que não clicaram no anúncio tendem a
+passar mais tempo diário no site (mediana acima de 80 minutos), enquanto
+aqueles que clicaram apresentam um tempo diário menor (mediana próxima
+de 60 minutos). Isso sugere que maior tempo de navegação não está
+diretamente associado a cliques nos anúncios.
+
+#### Renda da Área vs. Clique no Anúncio
+
+Este boxplot avalia a relação entre a renda média da área e a
+probabilidade de clique no anúncio, destacando possíveis tendências
+econômicas
+
+```{r income-vs-click}
+# Boxplot: Renda da área vs. clique no anúncio
+ggplot(df, aes(x = factor(`Clicked on Ad`, labels = c("Não clicou", "Clicou")), y = `Area Income`)) +
+  geom_boxplot(fill = "lightgreen", color = "black") +
+  labs(x = "Clique no Anúncio", y = "Renda da Área", title = "Boxplot: Renda da Área por Clique") +
+  theme_minimal(base_size = 14)
+```
+
+A análise do boxplot revela que usuários que clicaram no anúncio têm
+renda da área ligeiramente menor (mediana mais baixa) em comparação com
+os que não clicaram. Isso pode indicar uma relação entre o perfil
+socioeconômico da área e a propensão a interagir com os anúncios.
+
+### Mapa de Calor das Correlações
+
+O mapa de calor apresenta as correlações entre as variáveis numéricas
+selecionadas. Ele fornece insights importantes sobre a relação entre as
+variáveis, ajudando a identificar padrões que podem ser explorados no
+modelo de regressão.
+
+```{r correlation-heatmap}
+# Selecionar variáveis numéricas
+numeric_vars <- dplyr::select(df, `Daily Time Spent on Site`, `Age`,`Area Income`, `Daily Internet Usage`, `Clicked on Ad`)
+
+# Calcular a matriz de correlação e arredondar os valores
+cor_matrix <- round(cor(numeric_vars), 2)
+
+# Derreter a matriz de correlação para formato longo
+cor_long <- melt(cor_matrix)
+
+# Manter apenas a metade inferior da matriz
+cor_long <- cor_long[as.numeric(cor_long$Var1) > as.numeric(cor_long$Var2), ]
+
+# Heatmap de correlação triangular com anotações
+ggplot(cor_long, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = value), color = "black", size = 4) +
+  scale_fill_gradient2(low = "white", high = "red", mid = "lightpink", midpoint = 0,
+                       limit = c(-1, 1), space = "Lab", name = "Correlação") +
+  labs(x = "", y = "", title = "Mapa de Calor das Correlações") +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  ) +
+  coord_fixed()
+```
+
+O mapa de calor mostra que há uma forte correlação negativa entre o
+tempo diário no site e o uso diário da internet (-0.79), bem como entre
+o tempo diário no site e o clique no anúncio (-0.75), indicando que
+usuários que passam menos tempo no site têm maior propensão a clicar no
+anúncio. Além disso, há uma correlação positiva moderada entre a idade e
+o clique no anúncio (0.49), sugerindo que usuários mais velhos têm maior
+probabilidade de interação com o anúncio. As demais variáveis apresentam
+correlações mais fracas.
+
+## Ajuste do Modelo de Regressão Logística
+
+Nesta seção, iniciamos o ajuste do modelo de regressão logística para
+prever a variável resposta `Clicked on Ad` com base nas variáveis
+explicativas.No modelo original, a observação 246 parecia ter influência
+significativa sobre o ajuste do modelo, portanto a modelagem foi feita
+sem essa observação, o que deu mais robistez aos resultados.
+
+```{r convertion, echo=TRUE}
+# Ajustar o modelo de regressão logística
+
+# Converter `Clicked on Ad` e `Male` para fatores
+df$Clicked_on_Ad <- as.factor(df$`Clicked on Ad`)
+df$Male <- as.factor(df$Male)
+
+# Selecionar as variáveis de interesse e a variável resposta
+df_model <- dplyr::select(df, `Clicked on Ad`, Age, `Daily Time Spent on Site`, `Area Income`, `Daily Internet Usage`, Male)
+#Base sem observação influente
+df_model2 <- as.data.frame(df_model[-246, ])
+```
+
+```{r logistic-regression}
+# Primeiro modelo
+modelo_old <- glm(`Clicked on Ad` ~ Age + `Daily Time Spent on Site` + `Area Income` + `Daily Internet Usage`,
+              data = df_model, family = binomial)
+# Modelo final
+modelo <- glm(`Clicked on Ad` ~ Age + `Daily Time Spent on Site` + `Area Income` + `Daily Internet Usage`,
+              data = df_model2, family = binomial)
+
+# Resumo do modelo
+summary(modelo)
+```
+
+O modelo de regressão logística ajustado é estatisticamente
+significativo, com todas as variáveis apresentando valores de p muito
+baixos, sugerindo que elas têm um impacto relevante na probabilidade de
+clique no anúncio. O coeficiente positivo para `Age` indica que o
+aumento da idade está associado a uma maior probabilidade de clique,
+enquanto os coeficientes negativos para `Daily Time Spent on Site`,
+`Area Income` e `Daily Internet Usage` sugerem que maiores valores
+dessas variáveis estão relacionados a uma menor probabilidade de clique.
+A deviance residual de 178.77, significativamente menor que a deviance
+nula de 1384.91, indica que o modelo ajusta bem os dados. O AIC de
+188.77 reflete um modelo relativamente bem ajustado com boa capacidade
+de predição, considerando o equilíbrio entre qualidade do ajuste e
+complexidade do modelo.
+
+### Verificação do Ajuste do Modelo
+
+```{r ajuste-modelo}
+# Verificação do ajuste do modelo usando o desvio
+n <- nrow(df2) # Tamanho amostral
+D <- deviance(modelo) # Desvio do modelo
+gl <- n - modelo$rank # Graus de liberdade
+pvalor <- 1 - pchisq(D, gl) # Nível descritivo
+cat("P-valor para o ajuste do modelo:", pvalor, "
+")
+```
+
+## Análise de Diagnóstico
+
+### Resíduos de Desvio vs Índices
+
+```{r residuo-vs-index}
+### ANÁLISE DE DIAGNÓSTICO
+
+residuos <- df_model2 %>%
+  mutate(
+    Index = row_number(),                              # Índice de cada observação
+    resid_deviance = residuals(modelo, type = "deviance")  # Resíduo de deviance
+  )
+
+# Criar o gráfico com ggplot
+ggplot_residuos <- ggplot(residuos, aes(x = Index, y = resid_deviance, text = paste(
+  "indice:", Index,
+  "<br>Residuo de Deviance:", round(resid_deviance, 3)
+))) +
+  geom_point(color = "forestgreen") +
+  geom_hline(yintercept = c(-2, 0, 2), linetype = "dashed", color = "red") +
+  labs(
+    title = "Resíduos de Deviance vs indices",
+    x = "indice",
+    y = "Residuo de Deviance"
+  ) +
+  theme_minimal()
+    
+ggplotly(ggplot_residuos, tooltip = "text")
+```
+
+O gráfico indica que a maioria dos resíduos está concentrada em torno de
+zero, com poucos valores fora das faixas de -2 a 2, representadas pelas
+linhas vermelhas tracejadas. Isso sugere que o modelo apresenta um bom
+ajuste para a maioria das observações, embora existam alguns pontos
+discrepantes que podem indicar potenciais outliers ou casos de alta
+influência.
+
+### Envelope Simulado
+
+```{r hnp}
+hnp(modelo, half = FALSE, sim = 500, conf = 0.95, paint.out = T)
+```
+
+O gráfico indica como os resíduos se alinham em relação à distribuição
+teórica esperada. Observa-se que, para a maior parte dos pontos, os
+resíduos seguem o comportamento esperado (próximos da linha de
+referência), o que sugere que o modelo está adequadamente ajustado. No
+entanto, há desvios nas caudas, o que pode indicar algumas observações
+discrepantes ou uma leve inadequação na suposição do modelo para esses
+pontos específicos.
+
+### Alavancagem
+
+Identificar observações que exercem uma grande influência potencial no
+ajuste do modelo devido à sua posição no espaço das variáveis
+independentes.
+
+```{r alavancagem}
+# Alavancagem
+alavancagem <- hatvalues(modelo)
+df2$Alavancagem <- alavancagem
+
+limiar_alavancagem <- 2 * mean(alavancagem)
+pontos_alavancagem <- which(alavancagem > limiar_alavancagem)
+cat("Pontos influentes por alavancagem (>", limiar_alavancagem, "):", pontos_alavancagem, "\n")
+
+# Gráfico de alavancagem por índice
+ggplot_alavancagem <- ggplot(df2, aes(x = 1:nrow(df2), y = Alavancagem, text = paste("Índice:", 1:nrow(df2), "<br>Alavancagem:", round(Alavancagem, 3)))) +
+  geom_point(color = "steelblue") +
+  geom_hline(yintercept = limiar_alavancagem, linetype = "dashed", color = "red") +
+  labs(title = "Alavancagem por Índice", x = "Índice", y = "Alavancagem") +
+  theme_minimal()
+
+ggplotly(ggplot_alavancagem, tooltip = "text")
+
+
+```
+
+A maioria das observações apresenta valores de alavancagem baixos,
+indicando baixa influência individual no modelo. Os pontos que
+ultrapassam a linha de referência sugerem observações com maior
+potencial de impacto e devem ser investigados mais a fundo.
+
+### DFFIT
+
+Medir a influência de uma observação na predição ajustada do modelo.
+
+```{r dffit}
+# DFFITS
+dffits_vals <- dffits(modelo)
+df2$DFFITS <- dffits_vals
+
+# Calcular limiar de referência
+n <- nrow(df2)  # Número de observações
+k <- length(coefficients(modelo))  # Número de preditores (incluindo intercepto)
+limiar_dffits <- 2 * sqrt(k / n)
+limiar_dffits <- 2 * sqrt(ncol(df2) / nrow(df2))
+pontos_dffits <- which(abs(dffits_vals) > limiar_dffits)
+
+ggplot_dffits <- ggplot(df2, aes(x = 1:nrow(df2), y = DFFITS, text = paste("Índice:", 1:nrow(df2), "<br>DFFITS:", round(DFFITS, 3)))) +
+  geom_point(color = "firebrick") +
+  geom_hline(yintercept = c(limiar_dffits, -limiar_dffits), linetype = "dashed", color = "blue") +
+  labs(title = "DFFITS por Índice", x = "Índice", y = "DFFITS") +
+  theme_minimal()
+
+ggplotly(ggplot_dffits, tooltip = "text")
+
+cat("Pontos influentes por DFFITS (|>|", limiar_dffits, "):", pontos_dffits, "\n")
+```
+
+O gráfico mostra que a maior parte das observações tem valores de DFFITS
+próximos de zero, sugerindo que elas não afetam substancialmente as
+previsões do modelo. No entanto, há alguns pontos com valores mais altos
+que indicam possíveis influências relevantes no ajuste.
+
+### Distância de Cook
+
+Avaliar a influência geral de uma observação, considerando tanto sua
+posição (alavancagem) quanto seu impacto nos valores ajustados.
+
+```{r cook}
+# Distância de Cook
+cooks_dist <- cooks.distance(modelo)
+df2$Cooks <- cooks_dist
+
+# Cálculo dinâmico do limiar
+n <- nrow(df2)  # Número de observações
+k <- length(coefficients(modelo)) - 1  # Número de preditores (excluindo intercepto)
+limiar_cooks <- 4 / (n - k - 1)
+
+ggplot_cooks <- ggplot(df2, aes(x = 1:nrow(df2), y = Cooks, text = paste("Índice:", 1:nrow(df2), "<br>Distância de Cook:", round(Cooks, 3)))) +
+  geom_point(color = "darkgreen") +
+  geom_hline(yintercept = limiar_cooks, linetype = "dashed", color = "blue") +
+  geom_hline(yintercept = c(0.5, 1), linetype = "dotted", color = "red") +
+  labs(title = "Distância de Cook por Índice", x = "Índice", y = "Distância de Cook") +
+  coord_cartesian(ylim = c(0, max(c(min(max(cooks_dist), 0.1), limiar_cooks + 0.01)))) +  # Ajuste dinâmico no eixo y
+  theme_minimal()
+
+
+ggplotly(ggplot_cooks, tooltip = "text")
+
+```
+
+A maioria dos valores de distância de Cook está próxima de zero,
+mostrando que poucas observações têm grande impacto no ajuste do modelo.
+No entanto, algumas observações ultrapassam limites de referência,
+indicando casos que podem ser altamente influentes e exigem análise
+detalhada.
+
+## Pseudo R² do Modelo
+
+O gráfico de pseudo-R² apresenta medidas de qualidade do modelo
+ajustado.
+
+```{r r2}
+# Pseudo-R² do modelo
+pseudo_r2 <- RsqGLM(modelo)
+#cat("Pseudo-R² do Modelo:\n")
+print(pseudo_r2)
+```
+
+O valor de Cox & Snell (0.70) indica um ajuste razoável, enquanto o
+Nagelkerke (0.93) sugere um ajuste muito bom. McFadden (0.87) também
+reforça a adequação do modelo, sendo considerado excelente para valores
+acima de 0.4. As métricas de Tjur (0.90) e Pearson (0.91) confirmam que
+o modelo explica uma alta proporção da variação nos dados. Esses
+resultados indicam que o modelo de regressão logística ajustado é
+robusto para capturar as relações entre as variáveis preditoras e a
+resposta.
+
+## Verificação da Função de Ligação
+
+Todas as variáveis originais (`Age`, `Daily Time Spent on Site`,
+`Area Income` e `Daily Internet Usage`) permanecem estatisticamente
+significativas, com coeficientes consistentes em relação ao modelo
+inicial. O coeficiente para eta_hat² não é significativo (p = 0.1109),
+indicando que não há evidências suficientes de inadequação da função de
+ligação utilizada. A redução marginal na deviance residual (de 178.77
+para 176.16) sugere que o modelo não melhora consideravelmente com a
+inclusão de eta_hat², reforçando a adequação da função de ligação
+inicial. O AIC (188.16) é semelhante ao modelo original, confirmando que
+a inclusão de eta_hat² não resulta em um ganho significativo no ajuste
+do modelo.
+
+```{r ligacao}
+# Verificação da função de ligação
+eta_hat <- modelo$fitted.values
+eta_hat2 <- eta_hat^2
+verificar_ligacao <- glm(`Clicked on Ad` ~ Age + `Daily Time Spent on Site` + `Area Income` + `Daily Internet Usage` + eta_hat2,
+                         data = df2, family = binomial)
+summary(verificar_ligacao)
+```
+
+## Razão de Chances: Interpretação das Covariáveis
+
+A razão de Chances descreve a relação entre uma variável dependente binária (ou categórica) e uma ou mais variáveis independentes
+
+```{r covs}
+# Dados para a tabela
+variaveis <- c("Idade", 
+               "Tempo diario no site", 
+               "Renda anual", 
+               "Uso diario da internet")
+
+coeficientes <- c(0.1843, -0.1946, 0.0001441, -0.06438)
+
+razao_de_chances <- exp(coeficientes)
+
+interpretacao <- c("Aumenta as chances do evento em 20,2% para cada unidade adicional de idade.",
+                   "Reduz as chances do evento em 17,7% para cada unidade a mais de tempo no site.",
+                   "Aumenta as chances do evento em 0,0144% para cada unidade a mais na renda anual.",
+                   "Reduz as chances do evento em 6,2% para cada unidade a mais de uso diario da internet.")
+
+# Criando a tabela
+tabela_resumo <- data.frame(
+  Variavel = variaveis,
+  Coeficiente = coeficientes,
+  `Razao de Chances (OR)` = round(razao_de_chances, 3),
+  Interpretacao = interpretacao
+)
+
+# Exibindo a tabela com kable (sem caracteres especiais)
+kable(
+  tabela_resumo,
+  align = "c",
+  col.names = c("Variavel", "Coeficiente (beta)", "Razao de Chances (OR)", "Interpretacao")
+)
+
+```
+
+## Conclusão
+
+O modelo ajustado indicou que as variáveis idade, tempo diário no site,
+renda da área e uso diário da internet são todas estatisticamente
+significativas para prever a probabilidade de clique no anúncio, com
+p-valores \< 0,001. Os coeficientes sugerem que o aumento na idade está
+associado a uma maior probabilidade de clique, enquanto maiores tempos
+diários no site, maiores rendas da área e maior uso diário da internet
+estão associados a uma menor probabilidade de clique.
+
+A verificação de ajuste através dos pseudo-R² reforçou a qualidade do
+modelo, com valores elevados como Nagelkerke (0,93) e McFadden (0,87).
+Esses resultados indicam que o modelo explica uma proporção
+significativa da variância nos dados e é robusto em termos preditivos. A
+avaliação da função de ligação através da inclusão do termo eta_hat²
+mostrou que a ligação binomial logítica utilizada é adequada, uma vez
+que esse termo não foi estatisticamente significativo
+
+Os gráficos de diagnóstico indicaram um bom ajuste para a maioria das
+observações, com os resíduos concentrados em torno de zero. Pontos com
+valores extremos de alavancagem e medidas de influência (como DFFITS e
+distância de Cook) foram identificados, mas constituem uma minoria e não
+comprometem a validade geral do modelo. Esses pontos podem ser
+analisados com maior profundidade para explorar padrões atípicos ou
+discrepâncias específicas nos dados.

@@ -1,0 +1,93 @@
+<style>
+  /* Estilos para o corpo */
+  body.light-mode {
+    background-color: #ffffff;
+    color: #000000;
+  }
+
+  body.dark-mode {
+    background-color: #181818;
+    color: #ffffff;
+  }
+
+  pre, code {
+    background-color: inherit !important;
+    color: inherit !important;
+  }
+
+  /* Estilos para os títulos */
+  body.light-mode h1, body.light-mode h2, body.light-mode h3, body.light-mode h4, body.light-mode h5, body.light-mode h6 {
+    color: #000000; /* Cor escura padrão */
+  }
+
+  body.dark-mode h1, body.dark-mode h2, body.dark-mode h3, body.dark-mode h4, body.dark-mode h5, body.dark-mode h6 {
+    color: #ffffff; /* Cor clara para contraste */
+  }
+
+  /* Botão para alternar o tema */
+  .btn-toggle {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background-color: #007bff;
+    color: #ffffff;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    font-size: 14px;
+    cursor: pointer;
+    z-index: 1000;
+  }
+
+  /* Estilo do sumário (TOC) */
+  #toc {
+    border-radius: 5px;
+    padding: 10px;
+    background-color: #f8f9fa; /* Fundo claro padrão */
+    color: #000000; /* Texto escuro padrão */
+    border: 1px solid #dddddd;
+  }
+
+  /* Estilo dos links no TOC em modo claro */
+  body.light-mode #toc a {
+    color: #007bff !important; /* Azul padrão para modo claro */
+    text-decoration: none;
+    font-weight: bold;
+  }
+
+  /* Estilo dos links no TOC em modo escuro */
+  body.dark-mode #toc a {
+    color: #ffffff !important; /* Branco para máximo contraste no modo escuro */
+    text-decoration: none;
+    font-weight: bold;
+  }
+
+  /* Estilo do sumário em modo escuro */
+  body.dark-mode #toc {
+    background-color: #2c2c2c !important; /* Fundo escuro */
+    color: #ffffff !important; /* Texto claro */
+    border: 1px solid #555555;
+  }
+</style>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const body = document.body;
+
+    // Criar botão de alternância
+    const button = document.createElement("button");
+    button.textContent = "Toggle Theme";
+    button.className = "btn-toggle";
+
+    // Alternar entre light-mode e dark-mode
+    button.onclick = () => {
+      body.classList.toggle("light-mode");
+      body.classList.toggle("dark-mode");
+    };
+
+    document.body.appendChild(button);
+
+    // Definir o tema padrão como claro
+    body.classList.add("light-mode");
+  });
+</script>
